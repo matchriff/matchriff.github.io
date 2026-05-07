@@ -1,10 +1,12 @@
-export const APP_VERSION = "0.1.0-pages-gun";
+export const APP_VERSION = "1.0.0-pages-gun";
 
 export const GUN_NAMESPACE = "matchriff/v1";
 
 export const DEFAULT_GUN_PEERS = [
-  "https://gun-manhattan.herokuapp.com/gun"
+  "https://relay.peer.ooo/gun"
 ];
+
+export const RELAY_CONNECT_TIMEOUT_MS = 8000;
 
 export const SOLANA_CLUSTER = "devnet";
 

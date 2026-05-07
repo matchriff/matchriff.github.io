@@ -1,4 +1,4 @@
-import { DEFAULT_GUN_PEERS, GUN_NAMESPACE } from "./config.js";
+import { DEFAULT_GUN_PEERS, GUN_NAMESPACE, RELAY_CONNECT_TIMEOUT_MS } from "./config.js";
 
 const PROFILE_KEY = "matchriff.github.io.profileId";
 const PEERS_KEY = "matchriff.github.io.gunPeers";
@@ -44,12 +44,18 @@ const listFromGunMap = (map) =>
 
 export class MatchriffGunStore {
   constructor() {
-    this.connection = "local";
+    this.connection = "connecting";
+    this.activePeers = new Map();
     this.listeners = {
       status: new Set(),
       profiles: new Set(),
       swipes: new Set(),
       proofs: new Set()
+    };
+    this.caches = {
+      profiles: new Map(),
+      swipes: new Map(),
+      proofs: new Map()
     };
 
     this.profileId = localStorage.getItem(PROFILE_KEY);
@@ -65,13 +71,26 @@ export class MatchriffGunStore {
 
     this.gun.on("hi", (peer) => {
       this.connection = "live";
+      if (peer?.url) this.activePeers.set(peer.url, Date.now());
       this.emit("status", this.getStatus(peer?.url));
     });
 
-    this.gun.on("bye", () => {
-      this.connection = "local";
-      this.emit("status", this.getStatus());
+    this.gun.on("bye", (peer) => {
+      if (peer?.url) this.activePeers.delete(peer.url);
+      this.connection = this.activePeers.size ? "live" : "relay-unconfirmed";
+      this.emit("status", this.getStatus(peer?.url));
     });
+
+    window.setTimeout(() => {
+      if (this.connection === "connecting") {
+        this.connection = this.activePeers.size ? "live" : "relay-unconfirmed";
+        this.emit("status", this.getStatus());
+      }
+    }, RELAY_CONNECT_TIMEOUT_MS);
+
+    this.bindCollection("profiles");
+    this.bindCollection("swipes");
+    this.bindCollection("proofs");
   }
 
   getStatus(peerUrl = "") {
@@ -79,6 +98,7 @@ export class MatchriffGunStore {
       connection: this.connection,
       profileId: this.profileId,
       peers: [...this.peers],
+      activePeers: [...this.activePeers.keys()],
       peerUrl
     };
   }
@@ -102,65 +122,42 @@ export class MatchriffGunStore {
     window.location.reload();
   }
 
-  seedDemoProfiles() {
-    const demo = [
-      {
-        id: "demo-aya",
-        displayName: "Aya Narang",
-        city: "Jakarta",
-        roles: encodeList(["vocals", "songwriter"]),
-        genres: encodeList(["indie", "r&b"]),
-        intent: "write hooks and play weekend showcases",
-        portfolio: "https://open.spotify.com/",
-        bio: "Warm toplines, fast lyric edits, looking for a producer/guitarist with a live set mindset.",
-        walletAddress: ""
-      },
-      {
-        id: "demo-rio",
-        displayName: "Rio Pradana",
-        city: "Bandung",
-        roles: encodeList(["guitar", "producer"]),
-        genres: encodeList(["rock", "electronic"]),
-        intent: "build a live duo with heavy synth guitars",
-        portfolio: "https://youtube.com/",
-        bio: "Guitar textures, Ableton sketches, and a bias toward songs that work on small stages.",
-        walletAddress: ""
-      },
-      {
-        id: "demo-mira",
-        displayName: "Mira Sol",
-        city: "Singapore",
-        roles: encodeList(["keys", "producer"]),
-        genres: encodeList(["jazz", "electronic"]),
-        intent: "remote session work and proof-backed credits",
-        portfolio: "https://soundcloud.com/",
-        bio: "Neo-soul harmony brain. Wants collaborators who can finish.",
-        walletAddress: ""
+  bindCollection(kind) {
+    this.root.get(kind).map().on((record, key) => {
+      if (!key || key === "_" || !record || typeof record !== "object") return;
+      const clean = removeGunMeta({ id: key, ...record });
+      if (clean.deletedAt) {
+        this.caches[kind].delete(key);
+      } else {
+        this.caches[kind].set(key, clean);
       }
-    ];
-
-    demo.forEach((profile) => {
-      this.root.get("profiles").get(profile.id).put({
-        ...profile,
-        updatedAt: Date.now()
-      });
+      this.emit(kind, this.getCachedCollection(kind));
     });
   }
 
-  subscribeProfiles(callback) {
-    return this.root.get("profiles").map().on(() => {
-      this.getProfiles().then(callback);
-    });
+  getCachedCollection(kind) {
+    return [...this.caches[kind].values()]
+      .filter((value) => value && !value.deletedAt)
+      .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+  }
+
+  onProfiles(callback) {
+    this.on("profiles", callback);
+    callback(this.getCachedCollection("profiles"));
+  }
+
+  onSwipes(callback) {
+    this.on("swipes", callback);
+    callback(this.getCachedCollection("swipes"));
+  }
+
+  onProofs(callback) {
+    this.on("proofs", callback);
+    callback(this.getCachedCollection("proofs"));
   }
 
   getProfiles() {
-    return new Promise((resolve) => {
-      this.root.get("profiles").once((profiles) => {
-        const list = listFromGunMap(profiles)
-          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-        resolve(list);
-      });
-    });
+    return Promise.resolve(this.getCachedCollection("profiles"));
   }
 
   getMyProfile() {
@@ -202,11 +199,7 @@ export class MatchriffGunStore {
   }
 
   getSwipes() {
-    return new Promise((resolve) => {
-      this.root.get("swipes").once((swipes) => {
-        resolve(listFromGunMap(swipes));
-      });
-    });
+    return Promise.resolve(this.getCachedCollection("swipes"));
   }
 
   async getMatches() {
@@ -234,12 +227,6 @@ export class MatchriffGunStore {
   }
 
   getProofs() {
-    return new Promise((resolve) => {
-      this.root.get("proofs").once((proofs) => {
-        const list = listFromGunMap(proofs)
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        resolve(list);
-      });
-    });
+    return Promise.resolve(this.getCachedCollection("proofs"));
   }
 }

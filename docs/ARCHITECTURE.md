@@ -2,11 +2,11 @@
 
 ## Why This Port Exists
 
-The original Matchriff prototype was a static React app backed by a hosted database. That was useful for getting matching behavior working quickly, but the Solana hackathon direction needs a more decentralized foundation.
+Matchriff needs a public web environment that can run from static hosting while using decentralized data and Solana modules.
 
-The GitHub Pages port is designed as a workbench for:
+The GitHub Pages app is designed for:
 
-- decentralized musician profiles
+- public decentralized musician profiles
 - p2p discovery and matching
 - Solana wallet-linked identity
 - Proof of Jam receipts
@@ -26,20 +26,20 @@ Nodes:
 - `swipes/{from}:{targetId}`: like/pass records
 - `proofs/{proofId}`: Proof of Jam receipts
 
-The current prototype uses a browser-generated local `profileId`. This is intentionally simple for hackathon iteration. The next step is to bind profiles to GUN SEA identities and Solana wallet addresses.
+The current app uses a browser-generated local `profileId`. The next step is to bind profiles to GUN SEA identities and Solana wallet addresses.
 
 ## GUN Strategy
 
 GUN is used because it supports:
 
-- local-first operation
+- relay-assisted peer-to-peer operation
 - realtime sync
 - graph-shaped data
 - optional peer relays
-- browser-friendly decentralized prototypes
+- browser-friendly decentralized production apps
 - SEA cryptographic identities for future private/authorized data
 
-The app can load without a relay. Cross-device sync needs reachable peers. Production should use Matchriff-owned relays plus optional community relays.
+The app can load without a relay, but cross-device sync needs reachable peers. The production default uses public GUN relays and lets users add additional public relay URLs.
 
 ## Solana Strategy
 
@@ -65,7 +65,7 @@ That is why GUN relays and Solana RPC endpoints must be external or user-configu
 
 ## Production TODO
 
-- Replace demo public writes with GUN SEA user identities.
+- Add GUN SEA user identities.
 - Add profile ownership verification.
 - Add moderation and abuse controls.
 - Operate Matchriff-owned GUN relays.

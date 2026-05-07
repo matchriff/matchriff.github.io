@@ -18,6 +18,18 @@ const state = {
   toast: ""
 };
 
+const connectionLabel = (connection) => {
+  if (connection === "live") return "public GUN relay live";
+  if (connection === "connecting") return "connecting to public relay";
+  return "public relay not confirmed";
+};
+
+const connectionDot = (connection) => {
+  if (connection === "live") return "live";
+  if (connection === "connecting") return "pending";
+  return "local";
+};
+
 const shorten = (value) => {
   if (!value) return "";
   return value.length > 16 ? `${value.slice(0, 4)}...${value.slice(-4)}` : value;
@@ -66,7 +78,18 @@ store.on("status", (status) => {
   render();
 });
 
-store.subscribeProfiles(() => refresh());
+store.onProfiles((profiles) => {
+  state.profiles = profiles;
+  refresh();
+});
+store.onSwipes((swipes) => {
+  state.swipes = swipes;
+  refresh();
+});
+store.onProofs((proofs) => {
+  state.proofs = proofs;
+  refresh();
+});
 
 const nav = () => `
   <div class="tabs" role="tablist" aria-label="Matchriff sections">
@@ -86,7 +109,7 @@ const topbar = () => `
       <span class="status-pill">v${APP_VERSION}</span>
     </div>
     <div class="topbar-actions">
-      <span class="network-pill"><span class="dot ${state.status.connection === "live" ? "live" : "local"}"></span>${state.status.connection === "live" ? "GUN peer live" : "local-first GUN"}</span>
+      <span class="network-pill"><span class="dot ${connectionDot(state.status.connection)}"></span>${connectionLabel(state.status.connection)}</span>
       <button class="button ghost" data-action="connect-wallet" type="button">${state.walletAddress ? `Wallet ${shorten(state.walletAddress)}` : "Connect Solana wallet"}</button>
     </div>
   </header>
@@ -95,21 +118,20 @@ const topbar = () => `
 const hero = () => `
   <section class="hero">
     <div class="hero-main">
-      <div class="eyebrow">GitHub Pages p2p prototype</div>
+      <div class="eyebrow">Production public-relay environment</div>
       <h1>Find the collaborator. <span class="gradient-text">Prove the jam.</span></h1>
       <p class="lede">
-        Matchriff is being ported into a static, GitHub Pages friendly app with GUN for decentralized state and Solana for Proof of Jam receipts.
+        Matchriff runs as a static GitHub Pages app using public GUN relays for decentralized musician profiles, matching signals, and Solana Proof of Jam receipts.
       </p>
       <div class="hero-actions">
-        <button class="button primary" data-view="profile" type="button">Create musician profile</button>
-        <button class="button mint" data-action="seed" type="button">Seed demo scene</button>
+        <button class="button primary" data-view="profile" type="button">Publish musician profile</button>
         <a class="button ghost" href="https://github.com/matchriff/matchriff.github.io" target="_blank" rel="noreferrer">GitHub repo</a>
       </div>
     </div>
     <div class="hero-side">
-      <div class="signal-card"><strong>GUN graph</strong><span>Profiles, swipes, matches, and proofs sync through a p2p graph with local-first fallback.</span></div>
+      <div class="signal-card"><strong>Public GUN relays</strong><span>Profiles, swipes, matches, and proofs sync through reachable public relay peers.</span></div>
       <div class="signal-card"><strong>Wallet identity</strong><span>Solana wallet linking is optional for discovery and required for signed Proof of Jam records.</span></div>
-      <div class="signal-card"><strong>No central app backend</strong><span>This version is the decentralized workbench for future Solana modules.</span></div>
+      <div class="signal-card"><strong>Static production app</strong><span>The site is served from GitHub Pages and keeps app state in the GUN graph.</span></div>
     </div>
   </section>
 `;
@@ -129,7 +151,7 @@ const profileForm = () => {
         <div class="field"><label>Genres</label><div class="chips" data-chip-group="genres">${GENRES.map((genre) => `<button class="chip ${selected(p.genres, genre)}" data-chip="${genre}" type="button">${genre}</button>`).join("")}</div></div>
         <button class="button primary" data-action="save-profile" type="button">Save to GUN graph</button>
       </div>
-      <p class="footer-note">Current node: ${store.profileId}. Profile data is public in this prototype. Use SEA access controls before storing private data.</p>
+      <p class="footer-note">Current node: ${store.profileId}. Profile data is public on the Matchriff GUN graph; keep private contact details out of public profile fields.</p>
     </section>
   `;
 };
@@ -142,7 +164,7 @@ const peerSettings = () => `
       <textarea id="peerUrls">${escapeHtml(state.status.peers.join("\n"))}</textarea>
     </div>
     <button class="button ghost" data-action="save-peers" type="button">Save peers and reload</button>
-    <p class="footer-note">GUN can work local-first, but cross-device sync needs reachable relay peers. For production, run Matchriff-owned relays.</p>
+    <p class="footer-note">The production default uses public GUN relays. Add additional public relay URLs here if one becomes unavailable.</p>
   </section>
 `;
 
@@ -155,7 +177,7 @@ const discover = () => {
   return `
     <section class="panel">
       <h2>Discover musicians</h2>
-      ${cards.length ? `<div class="cards">${cards.map(profileCard).join("")}</div>` : `<div class="empty">No unswiped musicians yet. Seed the demo scene or share this page with another musician.</div>`}
+      ${cards.length ? `<div class="cards">${cards.map(profileCard).join("")}</div>` : `<div class="empty">No unswiped public profiles are available yet. Publish your profile and invite another musician to join the same relay graph.</div>`}
     </section>
   `;
 };
@@ -178,7 +200,7 @@ const profileCard = (profile) => `
 const matches = () => `
   <section class="panel">
     <h2>Matches</h2>
-    ${state.matches.length ? `<div class="cards">${state.matches.map(matchCard).join("")}</div>` : `<div class="empty">No mutual likes yet. For demo mode, open this page in two browsers and like each other.</div>`}
+    ${state.matches.length ? `<div class="cards">${state.matches.map(matchCard).join("")}</div>` : `<div class="empty">No mutual likes yet. A match appears when two published profiles like each other.</div>`}
   </section>
 `;
 
@@ -334,10 +356,6 @@ app.addEventListener("click", async (event) => {
   try {
     if (target.dataset.chip) {
       target.classList.toggle("active");
-    } else if (action === "seed") {
-      store.seedDemoProfiles();
-      await refresh();
-      toast("Demo scene seeded into GUN.");
     } else if (action === "connect-wallet") {
       await connectWallet();
     } else if (action === "save-profile") {

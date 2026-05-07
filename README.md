@@ -4,9 +4,9 @@ This repository is the GitHub Pages version of Matchriff:
 
 https://matchriff.github.io/
 
-It is a static, p2p-first port of the original Matchriff prototype. The goal is to remove central app backend dependency from the hackathon workbench and make room for decentralized modules:
+It is a static, p2p-first production environment for Matchriff. The goal is to run the public web app from GitHub Pages while using public GUN relay peers and Solana modules:
 
-- GUN for local-first / peer-to-peer graph state
+- GUN for peer-to-peer graph state through public relays
 - Solana wallet linking
 - Proof of Jam receipts as signed messages or devnet memo transactions
 - future Solana Pay, credentials, and token experiments after real collaboration signal exists
@@ -29,6 +29,8 @@ Then open `http://localhost:5174`.
 - `js/solana.js`: wallet, signed Proof of Jam payloads, and optional devnet memo writes
 - `js/app.js`: UI controller
 
-## Privacy Note
+## Public Relay Configuration
 
-This prototype writes profile and proof data into a public GUN graph namespace. Do not store private data here. Before production, add GUN SEA identities, write authorization, moderation, and a Matchriff-owned relay strategy.
+The default public relay list lives in `js/config.js`.
+
+Profile and proof data are public on the Matchriff GUN graph. Do not store private contact details in public profile fields. SEA identities, write authorization, and moderation remain the next production-hardening layer.
