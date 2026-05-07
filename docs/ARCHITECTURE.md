@@ -2,7 +2,7 @@
 
 ## Why This Port Exists
 
-The original Matchriff prototype was a static React app backed by Supabase. That was useful for getting matching behavior working quickly, but the Solana hackathon direction needs a more decentralized foundation.
+The original Matchriff prototype was a static React app backed by a hosted database. That was useful for getting matching behavior working quickly, but the Solana hackathon direction needs a more decentralized foundation.
 
 The GitHub Pages port is designed as a workbench for:
 

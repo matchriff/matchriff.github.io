@@ -4,7 +4,7 @@ This repository is the GitHub Pages version of Matchriff:
 
 https://matchriff.github.io/
 
-It is a static, p2p-first port of the original Matchriff prototype. The goal is to remove the Supabase dependency from the hackathon workbench and make room for decentralized modules:
+It is a static, p2p-first port of the original Matchriff prototype. The goal is to remove central app backend dependency from the hackathon workbench and make room for decentralized modules:
 
 - GUN for local-first / peer-to-peer graph state
 - Solana wallet linking

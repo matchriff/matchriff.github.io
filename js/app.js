@@ -98,7 +98,7 @@ const hero = () => `
       <div class="eyebrow">GitHub Pages p2p prototype</div>
       <h1>Find the collaborator. <span class="gradient-text">Prove the jam.</span></h1>
       <p class="lede">
-        Matchriff is being ported from a Supabase-backed prototype into a static, GitHub Pages friendly app with GUN for decentralized state and Solana for Proof of Jam receipts.
+        Matchriff is being ported into a static, GitHub Pages friendly app with GUN for decentralized state and Solana for Proof of Jam receipts.
       </p>
       <div class="hero-actions">
         <button class="button primary" data-view="profile" type="button">Create musician profile</button>
@@ -109,7 +109,7 @@ const hero = () => `
     <div class="hero-side">
       <div class="signal-card"><strong>GUN graph</strong><span>Profiles, swipes, matches, and proofs sync through a p2p graph with local-first fallback.</span></div>
       <div class="signal-card"><strong>Wallet identity</strong><span>Solana wallet linking is optional for discovery and required for signed Proof of Jam records.</span></div>
-      <div class="signal-card"><strong>No Supabase</strong><span>This version is the decentralized workbench for future Solana modules.</span></div>
+      <div class="signal-card"><strong>No central app backend</strong><span>This version is the decentralized workbench for future Solana modules.</span></div>
     </div>
   </section>
 `;
