@@ -259,6 +259,15 @@ h1 {
   padding: 18px;
 }
 
+.profile-panel {
+  scroll-margin-top: 18px;
+}
+
+.profile-panel:focus {
+  outline: 2px solid rgba(38, 244, 204, 0.55);
+  outline-offset: 4px;
+}
+
 .panel h2,
 .panel h3 {
   margin: 0 0 12px;
@@ -296,6 +305,67 @@ h1 {
 .field textarea {
   min-height: 86px;
   resize: vertical;
+}
+
+.help-bubble {
+  position: relative;
+  border: 1px solid rgba(38, 244, 204, 0.36);
+  border-radius: 14px;
+  padding: 11px 12px 11px 38px;
+  color: var(--muted);
+  background: rgba(38, 244, 204, 0.07);
+  font-size: 12.5px;
+  line-height: 1.42;
+}
+
+.help-bubble::before {
+  content: "?";
+  position: absolute;
+  top: 11px;
+  left: 12px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #041411;
+  background: var(--mint);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.help-bubble.start {
+  margin: 6px 0 14px;
+  border-color: rgba(255, 79, 216, 0.46);
+  background: rgba(255, 79, 216, 0.08);
+  color: var(--text);
+}
+
+.help-bubble.start::before {
+  content: "1";
+  background: var(--pink);
+  color: var(--text);
+}
+
+.help-bubble.wallet {
+  border-color: rgba(122, 92, 255, 0.52);
+  background: rgba(122, 92, 255, 0.1);
+}
+
+.help-bubble.wallet::before {
+  content: "◎";
+  color: var(--text);
+  background: var(--violet);
+}
+
+.help-bubble.save {
+  border-color: rgba(255, 207, 90, 0.5);
+  background: rgba(255, 207, 90, 0.09);
+}
+
+.help-bubble.save::before {
+  content: "✓";
+  background: var(--amber);
 }
 
 .chips {

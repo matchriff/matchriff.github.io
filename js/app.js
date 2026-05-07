@@ -57,6 +57,15 @@ const toast = (message) => {
   }, 3600);
 };
 
+const scrollToProfileForm = () => {
+  window.requestAnimationFrame(() => {
+    document.querySelector("#musician-node")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+  });
+};
+
 const refresh = async () => {
   const [profile, profiles, swipes, matches, proofs] = await Promise.all([
     store.getMyProfile(),
@@ -138,18 +147,36 @@ const hero = () => `
 
 const profileForm = () => {
   const p = state.profile || {};
+  const walletHelp = state.walletAddress
+    ? `Connected Solana address ${shorten(state.walletAddress)} will be saved into this public GUN profile when you save.`
+    : "Connect a Solana wallet before saving if you want your public wallet address attached to this GUN profile.";
   return `
-    <section class="panel">
+    <section class="panel profile-panel" id="musician-node" tabindex="-1">
       <h2>Your musician node</h2>
+      <div class="help-bubble start">
+        Start here: fill the fields that help another musician decide whether to collaborate. Your saved profile is published into the public Matchriff GUN graph.
+      </div>
       <div class="form-grid">
         <div class="field"><label>Name</label><input id="displayName" value="${escapeHtml(p.displayName || "")}" placeholder="Artist / bandmate name"></div>
         <div class="field"><label>City</label><input id="city" value="${escapeHtml(p.city || "")}" placeholder="Jakarta, Berlin, online..."></div>
         <div class="field"><label>Intent</label><input id="intent" value="${escapeHtml(p.intent || "")}" placeholder="jam, form a band, session work..."></div>
+        <div class="help-bubble">
+          Tip: intent is the fastest way to find the right match. Say what you want to make, rehearse, record, or perform.
+        </div>
         <div class="field"><label>Bio</label><textarea id="bio" placeholder="What should collaborators know?">${escapeHtml(p.bio || "")}</textarea></div>
         <div class="field"><label>Portfolio link</label><input id="portfolio" value="${escapeHtml(p.portfolio || "")}" placeholder="Spotify, YouTube, SoundCloud, website"></div>
+        <div class="help-bubble">
+          Add a portfolio link if you have one. This is public, so use a link you already want collaborators to see.
+        </div>
         <div class="field"><label>Roles</label><div class="chips" data-chip-group="roles">${ROLES.map((role) => `<button class="chip ${selected(p.roles, role)}" data-chip="${role}" type="button">${role}</button>`).join("")}</div></div>
         <div class="field"><label>Genres</label><div class="chips" data-chip-group="genres">${GENRES.map((genre) => `<button class="chip ${selected(p.genres, genre)}" data-chip="${genre}" type="button">${genre}</button>`).join("")}</div></div>
+        <div class="help-bubble wallet">
+          ${escapeHtml(walletHelp)}
+        </div>
         <button class="button primary" data-action="save-profile" type="button">Save to GUN graph</button>
+        <div class="help-bubble save">
+          Click Save after editing. Matchriff writes your musician node, selected roles/genres, portfolio link, and connected Solana address into the GUN graph.
+        </div>
       </div>
       <p class="footer-note">Current node: ${store.profileId}. Profile data is public on the Matchriff GUN graph; keep private contact details out of public profile fields.</p>
     </section>
@@ -273,7 +300,9 @@ const saveProfile = async () => {
   });
   state.profile = profile;
   await refresh();
-  toast("Profile saved to the GUN graph.");
+  toast(state.walletAddress
+    ? "Profile and Solana address saved to the GUN graph."
+    : "Profile saved to the GUN graph. Connect a Solana wallet to attach your address.");
 };
 
 const proofPayload = (targetId) => {
@@ -347,6 +376,9 @@ app.addEventListener("click", async (event) => {
     event.preventDefault();
     state.view = view;
     render();
+    if (view === "profile") {
+      scrollToProfileForm();
+    }
     return;
   }
 
