@@ -1,0 +1,9 @@
+{
+  "name": "matchriff.github.io",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check js/app.js && node --check js/gun-store.js && node --check js/solana.js && node --check js/config.js"
+  }
+}
