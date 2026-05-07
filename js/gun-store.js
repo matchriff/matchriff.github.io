@@ -36,12 +36,6 @@ const removeGunMeta = (record) => {
   return next;
 };
 
-const listFromGunMap = (map) =>
-  Object.entries(map || {})
-    .filter(([key, value]) => key !== "_" && value && typeof value === "object")
-    .map(([, value]) => removeGunMeta(value))
-    .filter((value) => value && !value.deletedAt);
-
 export class MatchriffGunStore {
   constructor() {
     this.connection = "connecting";
@@ -57,6 +51,7 @@ export class MatchriffGunStore {
       swipes: new Map(),
       proofs: new Map()
     };
+    this.profileSubscriptions = new Set();
 
     this.profileId = localStorage.getItem(PROFILE_KEY);
     if (!this.profileId) {
@@ -89,6 +84,7 @@ export class MatchriffGunStore {
     }, RELAY_CONNECT_TIMEOUT_MS);
 
     this.bindCollection("profiles");
+    this.bindProfileIndex();
     this.bindCollection("swipes");
     this.bindCollection("proofs");
   }
@@ -135,6 +131,25 @@ export class MatchriffGunStore {
     });
   }
 
+  bindProfileIndex() {
+    this.root.get("profileIndex").map().on((entry, key) => {
+      const id = entry?.id || key;
+      if (!id || id === "_" || entry?.deletedAt || this.profileSubscriptions.has(id)) return;
+
+      this.profileSubscriptions.add(id);
+      this.root.get("profiles").get(id).on((record) => {
+        if (!record || typeof record !== "object") return;
+        const clean = removeGunMeta({ id, ...record });
+        if (clean.deletedAt) {
+          this.caches.profiles.delete(id);
+        } else {
+          this.caches.profiles.set(id, clean);
+        }
+        this.emit("profiles", this.getCachedCollection("profiles"));
+      });
+    });
+  }
+
   getCachedCollection(kind) {
     return [...this.caches[kind].values()]
       .filter((value) => value && !value.deletedAt)
@@ -161,11 +176,44 @@ export class MatchriffGunStore {
   }
 
   getMyProfile() {
+    const cached = this.caches.profiles.get(this.profileId);
+    if (cached) return Promise.resolve(cached);
+
     return new Promise((resolve) => {
+      const timeout = window.setTimeout(() => resolve(null), 1200);
       this.root.get("profiles").get(this.profileId).once((profile) => {
+        window.clearTimeout(timeout);
         resolve(removeGunMeta(profile));
       });
     });
+  }
+
+  putRecord(kind, id, record) {
+    const clean = removeGunMeta({ id, ...record });
+    const collection = this.root.get(kind);
+    const node = collection.get(id);
+
+    this.caches[kind].set(id, clean);
+    this.emit(kind, this.getCachedCollection(kind));
+    node.put(record, (ack = {}) => {
+      if (ack.err) {
+        console.warn(`GUN ${kind} write failed`, ack.err);
+      }
+    });
+    collection.put({ [id]: node });
+
+    if (kind === "profiles") {
+      const index = this.root.get("profileIndex");
+      const indexNode = index.get(id);
+      indexNode.put({
+        id,
+        displayName: record.displayName || "",
+        city: record.city || "",
+        updatedAt: record.updatedAt || Date.now()
+      });
+      index.put({ [id]: indexNode });
+    }
+    return clean;
   }
 
   saveProfile(profile) {
@@ -181,8 +229,7 @@ export class MatchriffGunStore {
       walletAddress: profile.walletAddress || "",
       updatedAt: Date.now()
     };
-    this.root.get("profiles").get(this.profileId).put(record);
-    return record;
+    return this.putRecord("profiles", this.profileId, record);
   }
 
   recordSwipe(targetId, direction) {
@@ -194,8 +241,7 @@ export class MatchriffGunStore {
       direction,
       createdAt: Date.now()
     };
-    this.root.get("swipes").get(swipeId).put(record);
-    return record;
+    return this.putRecord("swipes", swipeId, record);
   }
 
   getSwipes() {
@@ -222,8 +268,7 @@ export class MatchriffGunStore {
       id,
       createdAt: proof.createdAt || Date.now()
     };
-    this.root.get("proofs").get(id).put(record);
-    return record;
+    return this.putRecord("proofs", id, record);
   }
 
   getProofs() {

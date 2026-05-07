@@ -3,6 +3,7 @@ export const APP_VERSION = "1.0.0-pages-gun";
 export const GUN_NAMESPACE = "matchriff/v1";
 
 export const DEFAULT_GUN_PEERS = [
+  "https://try.axe.eco/gun",
   "https://relay.peer.ooo/gun"
 ];
 

@@ -15,7 +15,9 @@ const state = {
   proofs: [],
   status: store.getStatus(),
   walletAddress: solana.walletAddress,
-  toast: ""
+  toast: "",
+  lastSavedAt: 0,
+  discoverIndex: 0
 };
 
 const connectionLabel = (connection) => {
@@ -46,6 +48,29 @@ const escapeHtml = (value = "") =>
 const chipList = (items = []) => items.map((item) => `<span>${escapeHtml(item)}</span>`).join("");
 
 const selected = (items = [], value) => items.includes(value) ? "active" : "";
+
+const publicProfiles = () =>
+  state.profiles
+    .filter((profile) => profile && profile.id && profile.id !== store.profileId)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+const currentSwipeFor = (profileId) =>
+  state.swipes.find((swipe) => swipe.from === store.profileId && swipe.targetId === profileId);
+
+const normalizeDiscoverIndex = () => {
+  const profiles = publicProfiles();
+  if (!profiles.length) {
+    state.discoverIndex = 0;
+    return;
+  }
+  if (state.discoverIndex < 0) state.discoverIndex = profiles.length - 1;
+  if (state.discoverIndex >= profiles.length) state.discoverIndex = 0;
+};
+
+const formatTime = (time) => {
+  if (!time) return "";
+  return new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+};
 
 const toast = (message) => {
   state.toast = message;
@@ -79,6 +104,7 @@ const refresh = async () => {
   state.swipes = swipes;
   state.matches = matches;
   state.proofs = proofs;
+  normalizeDiscoverIndex();
   render();
 };
 
@@ -174,6 +200,13 @@ const profileForm = () => {
           ${escapeHtml(walletHelp)}
         </div>
         <button class="button primary" data-action="save-profile" type="button">Save to GUN graph</button>
+        ${p.updatedAt ? `
+          <div class="save-confirmation">
+            <strong>Saved to GUN graph ${escapeHtml(formatTime(p.updatedAt))}</strong>
+            <span>Published profile: ${escapeHtml(p.displayName || "Unnamed Musician")}${p.city ? ` · ${escapeHtml(p.city)}` : ""}</span>
+            <span>${p.walletAddress ? `Solana address saved: ${escapeHtml(shorten(p.walletAddress))}` : "No Solana address saved yet. Connect a wallet, then save again to publish it into your GUN profile."}</span>
+          </div>
+        ` : ""}
         <div class="help-bubble save">
           Click Save after editing. Matchriff writes your musician node, selected roles/genres, portfolio link, and connected Solana address into the GUN graph.
         </div>
@@ -196,29 +229,59 @@ const peerSettings = () => `
 `;
 
 const discover = () => {
-  const swipedIds = new Set(state.swipes.filter((swipe) => swipe.from === store.profileId).map((swipe) => swipe.targetId));
-  const cards = state.profiles
-    .filter((profile) => profile.id !== store.profileId)
-    .filter((profile) => !swipedIds.has(profile.id));
+  const profiles = publicProfiles();
+  normalizeDiscoverIndex();
+  const profile = profiles[state.discoverIndex];
 
   return `
     <section class="panel">
-      <h2>Discover musicians</h2>
-      ${cards.length ? `<div class="cards">${cards.map(profileCard).join("")}</div>` : `<div class="empty">No unswiped public profiles are available yet. Publish your profile and invite another musician to join the same relay graph.</div>`}
+      <div class="section-heading">
+        <div>
+          <h2>Discover musicians</h2>
+          <p>Swipe through public musician profiles saved into the Matchriff GUN graph.</p>
+        </div>
+        ${profiles.length ? `<span class="deck-count">${state.discoverIndex + 1} / ${profiles.length}</span>` : ""}
+      </div>
+      ${profile ? swipeCard(profile) : `<div class="empty">No public musician profiles are available yet. Publish your profile and invite another musician to join the same relay graph.</div>`}
     </section>
   `;
 };
 
-const profileCard = (profile) => `
+const swipeCard = (profile) => {
+  const swipe = currentSwipeFor(profile.id);
+  const swipeText = swipe
+    ? `You ${swipe.direction === "like" ? "liked" : "passed"} this musician. Press left or right again to update your swipe.`
+    : "Swipe left to pass, right to like, or use the buttons below.";
+
+  return `
+    <article class="swipe-card" data-profile-id="${profile.id}">
+      <div class="swipe-card-top">
+        <span class="swipe-label">musician profile</span>
+        ${profile.walletAddress ? `<span class="wallet-badge">Solana ${shorten(profile.walletAddress)}</span>` : `<span class="wallet-badge muted">no wallet saved</span>`}
+      </div>
+      <h3>${escapeHtml(profile.displayName || "Unnamed Musician")}</h3>
+      <p class="swipe-subtitle">${escapeHtml(profile.city || "location open")} · ${escapeHtml(profile.intent || "open to collaboration")}</p>
+      <div class="meta">${chipList([...(profile.roles || []), ...(profile.genres || [])])}</div>
+      <p>${escapeHtml(profile.bio || "No bio yet.")}</p>
+      ${profile.portfolio ? `<a class="portfolio-link" href="${escapeHtml(profile.portfolio)}" target="_blank" rel="noreferrer">Open portfolio</a>` : ""}
+      <div class="swipe-status ${swipe ? swipe.direction : ""}">${escapeHtml(swipeText)}</div>
+      <div class="swipe-actions">
+        <button class="swipe-button pass" data-action="swipe-pass" data-id="${profile.id}" type="button" aria-label="Swipe left to pass">&larr; Pass</button>
+        <button class="swipe-button secondary" data-action="deck-prev" type="button">Previous</button>
+        <button class="swipe-button secondary" data-action="deck-next" type="button">Next</button>
+        <button class="swipe-button like" data-action="swipe-like" data-id="${profile.id}" type="button" aria-label="Swipe right to like">Like &rarr;</button>
+      </div>
+    </article>
+  `;
+};
+
+const compactProfileCard = (profile) => `
   <article class="card">
     <h3>${escapeHtml(profile.displayName || "Unnamed Musician")}</h3>
-    <p>${escapeHtml(profile.city || "location open")} · ${escapeHtml(profile.intent || "open to collaboration")}</p>
+    <p>${escapeHtml(profile.city || "location open")} · ${escapeHtml(profile.intent || "ready to collaborate")}</p>
     <div class="meta">${chipList([...(profile.roles || []), ...(profile.genres || [])])}</div>
-    <p>${escapeHtml(profile.bio || "No bio yet.")}</p>
     ${profile.walletAddress ? `<p class="proof-hash">wallet ${shorten(profile.walletAddress)}</p>` : ""}
     <div class="card-actions">
-      <button class="button mint" data-action="swipe-like" data-id="${profile.id}" type="button">Like</button>
-      <button class="button ghost" data-action="swipe-pass" data-id="${profile.id}" type="button">Pass</button>
       ${profile.portfolio ? `<a class="button ghost" href="${escapeHtml(profile.portfolio)}" target="_blank" rel="noreferrer">Portfolio</a>` : ""}
     </div>
   </article>
@@ -228,6 +291,7 @@ const matches = () => `
   <section class="panel">
     <h2>Matches</h2>
     ${state.matches.length ? `<div class="cards">${state.matches.map(matchCard).join("")}</div>` : `<div class="empty">No mutual likes yet. A match appears when two published profiles like each other.</div>`}
+    ${publicProfiles().length ? `<h3 class="subsection-title">Public musician graph</h3><div class="cards">${publicProfiles().map(compactProfileCard).join("")}</div>` : ""}
   </section>
 `;
 
@@ -299,7 +363,13 @@ const saveProfile = async () => {
     walletAddress: state.walletAddress
   });
   state.profile = profile;
-  await refresh();
+  state.profiles = [
+    profile,
+    ...state.profiles.filter((item) => item.id !== profile.id)
+  ];
+  state.lastSavedAt = profile.updatedAt;
+  normalizeDiscoverIndex();
+  render();
   toast(state.walletAddress
     ? "Profile and Solana address saved to the GUN graph."
     : "Profile saved to the GUN graph. Connect a Solana wallet to attach your address.");
@@ -394,9 +464,22 @@ app.addEventListener("click", async (event) => {
       await saveProfile();
     } else if (action === "save-peers") {
       store.updatePeers(document.querySelector("#peerUrls").value);
+    } else if (action === "deck-prev" || action === "deck-next") {
+      const count = publicProfiles().length;
+      if (count) {
+        state.discoverIndex += action === "deck-next" ? 1 : -1;
+        normalizeDiscoverIndex();
+        render();
+      }
     } else if (action === "swipe-like" || action === "swipe-pass") {
       store.recordSwipe(id, action === "swipe-like" ? "like" : "pass");
-      await refresh();
+      state.swipes = [
+        { id: `${store.profileId}:${id}`, from: store.profileId, targetId: id, direction: action === "swipe-like" ? "like" : "pass", createdAt: Date.now() },
+        ...state.swipes.filter((swipe) => swipe.id !== `${store.profileId}:${id}`)
+      ];
+      state.discoverIndex += 1;
+      normalizeDiscoverIndex();
+      render();
       toast(action === "swipe-like" ? "Like recorded." : "Pass recorded.");
     } else if (action === "proof-sign") {
       await signProof(id);
@@ -406,6 +489,37 @@ app.addEventListener("click", async (event) => {
   } catch (error) {
     console.error(error);
     toast(error.message || "Something went wrong.");
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (state.view !== "discover") return;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(event.target?.tagName)) return;
+  const profile = publicProfiles()[state.discoverIndex];
+  if (!profile) return;
+
+  if (event.key === "ArrowLeft") {
+    store.recordSwipe(profile.id, "pass");
+    state.swipes = [
+      { id: `${store.profileId}:${profile.id}`, from: store.profileId, targetId: profile.id, direction: "pass", createdAt: Date.now() },
+      ...state.swipes.filter((swipe) => swipe.id !== `${store.profileId}:${profile.id}`)
+    ];
+    state.discoverIndex += 1;
+    normalizeDiscoverIndex();
+    render();
+    toast("Pass recorded.");
+  }
+
+  if (event.key === "ArrowRight") {
+    store.recordSwipe(profile.id, "like");
+    state.swipes = [
+      { id: `${store.profileId}:${profile.id}`, from: store.profileId, targetId: profile.id, direction: "like", createdAt: Date.now() },
+      ...state.swipes.filter((swipe) => swipe.id !== `${store.profileId}:${profile.id}`)
+    ];
+    state.discoverIndex += 1;
+    normalizeDiscoverIndex();
+    render();
+    toast("Like recorded.");
   }
 });
 
